@@ -7,12 +7,15 @@ from typing import Optional
 from datetime import datetime
 import asyncio
 
-app = FastAPI()
+port = 8000
+
+app = FastAPI(port=port)
+
 
 # Allow requests from the Next.js app
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Update this to match your Next.js app domain
+     allow_origins=["*"],  # Update this to match your Next.js app domain
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
