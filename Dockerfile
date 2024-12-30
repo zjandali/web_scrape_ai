@@ -49,8 +49,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Playwright with system dependencies
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV NODE_OPTIONS=--max_old_space_size=4096
+ENV PLAYWRIGHT_BROWSER_PATH=/usr/bin/chromium-browser
 RUN playwright install --with-deps chromium
 
 # Copy application code
