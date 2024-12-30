@@ -61,6 +61,16 @@ def scrape_job_posting(url: str) -> dict:
         },
         "verbose": True,
         "headless": True,
+        "playwright": {
+            "browser_type": "chromium",
+            "launch_options": {
+                "args": [
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage"
+                ]
+            }
+        }
     }
     
     SCRAPING_PROMPT = """Extract all entry-level software engineering jobs posted within the last week. For each job, return a JSON object with the following fields:

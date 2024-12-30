@@ -34,6 +34,14 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Add these lines after the existing apt-get install
+RUN apt-get update && apt-get install -y \
+    fonts-liberation \
+    fonts-noto-color-emoji \
+    fonts-noto-cjk \
+    xvfb \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy requirements
 COPY requirements.txt .
 
@@ -42,7 +50,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Playwright with system dependencies
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-RUN playwright install --with-deps
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+RUN playwright install --with-deps chromium
 
 # Copy application code
 COPY . .
