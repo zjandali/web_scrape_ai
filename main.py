@@ -7,9 +7,9 @@ from typing import Optional
 from datetime import datetime
 import asyncio
 
-port = 8000
+port = int(os.getenv("PORT", 10000))
 
-app = FastAPI(port=port)
+app = FastAPI()
 
 
 # Allow requests from the Next.js app
