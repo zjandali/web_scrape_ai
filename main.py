@@ -25,7 +25,7 @@ if not OPENAI_API_KEY:
 
 job_urls = [
     "https://www.linkedin.com/jobs/search/?keywords=software%20engineer&location=United%20States&trk=public_jobs_jobs-search-bar_search-submit&redirect=false&position=1&pageNum=0",
-    "https://www.ycombinator.com/jobs"
+    "https://www.workatastartup.com/jobs"
 ]
 
 class ScrapeResults:
