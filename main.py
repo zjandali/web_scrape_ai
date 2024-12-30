@@ -55,23 +55,33 @@ results_manager = ScrapeResults()
 
 def scrape_job_posting(url: str) -> dict:
     graph_config = {
-        "llm": {
-            "api_key": OPENAI_API_KEY,
-            "model": "openai/gpt-4o-mini",
+    "llm": {
+        "api_key": OPENAI_API_KEY,
+        "model": "openai/gpt-4o-mini",
+    },
+    "verbose": True,
+    "headless": True,
+    "playwright": {
+        "browser_type": "chromium",
+        "launch_options": {
+            "args": [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--disable-software-rasterizer",
+                "--disable-accelerated-2d-canvas",
+                "--no-first-run",
+                "--no-zygote",
+                "--single-process"
+            ]
         },
-        "verbose": True,
-        "headless": True,
-        "playwright": {
-            "browser_type": "chromium",
-            "launch_options": {
-                "args": [
-                    "--no-sandbox",
-                    "--disable-setuid-sandbox",
-                    "--disable-dev-shm-usage"
-                ]
-            }
+        "context_options": {
+            "viewport": {"width": 1920, "height": 1080},
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
     }
+}
     
     SCRAPING_PROMPT = """Extract all entry-level software engineering jobs posted within the last week. For each job, return a JSON object with the following fields:
     {
@@ -92,23 +102,42 @@ def scrape_job_posting(url: str) -> dict:
     )
     return smart_scraper_graph.run()
 
+
+
+
+async def scrape_with_retries(url: str, max_retries: int = 3) -> dict:
+    for attempt in range(max_retries):
+        try:
+            # Add delay between retries
+            if attempt > 0:
+                await asyncio.sleep(5 * attempt)
+            
+            data = await asyncio.to_thread(scrape_job_posting, url)
+            return data
+        except Exception as e:
+            print(f"Attempt {attempt + 1} failed: {str(e)}")
+            if attempt == max_retries - 1:
+                raise e
+            continue
+
 async def scrape_all_jobs():
     temp_results = []
     for url in job_urls:
         try:
-            # Run synchronous scraping in a thread pool
-            data = await asyncio.to_thread(scrape_job_posting, url)
+            data = await scrape_with_retries(url)
             temp_results.append({"url": url, "data": data})
-            print(json.dumps(data, indent=4))
         except Exception as e:
-            temp_results.append({"url": url, "error": str(e)})
+            temp_results.append({
+                "url": url, 
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            })
     
     results_manager.set_results(temp_results)
     
     # Schedule clearing of results after 5 minutes
     await asyncio.sleep(300)
     results_manager.clear()
-
 @app.get("/scrape")
 async def scrape_jobs(background_tasks: BackgroundTasks):
     if results_manager.is_scraping:
