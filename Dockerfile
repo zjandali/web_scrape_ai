@@ -13,6 +13,23 @@ RUN apt-get update && \
     libsecret-1-0 \
     gir1.2-manette-0.2 \
     libgles2-mesa \
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libdbus-1-3 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libasound2 \
+    libxshmfence1 \
     wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -23,9 +40,9 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright browsers
+# Install Playwright with system dependencies
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN playwright install --with-deps chromium
-RUN playwright install-deps
 
 # Copy application code
 COPY . .
@@ -34,4 +51,4 @@ COPY . .
 EXPOSE 10000
 
 # Start command
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "10000"] 
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "10000"]
