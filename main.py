@@ -21,6 +21,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+SCRAPING_PROMPT = """Extract all entry-level software engineering jobs posted within the last week. For each job, return a JSON object with the following fields:
+    {
+        "job_title": "The title of the job position",
+        "company_name": "The name of the hiring company",
+        "job_url": "The URL linking to the job posting",
+        "location": "The job location in the format 'city, state' (if available)",
+        "date_posted": "The posting date of the job",
+        "description": "A detailed description of the company and the job, sufficient for generating a tailored cover letter"
+    }
+    
+    If any of the fields are missing or unavailable, leave them empty but include the field in the JSON object."""
+
+
 # Environment setup
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
@@ -83,18 +96,6 @@ def scrape_job_posting(url: str) -> dict:
     }
 }
     
-    SCRAPING_PROMPT = """Extract all entry-level software engineering jobs posted within the last week. For each job, return a JSON object with the following fields:
-    {
-        "job_title": "The title of the job position",
-        "company_name": "The name of the hiring company",
-        "job_url": "The URL linking to the job posting",
-        "location": "The job location in the format 'city, state' (if available)",
-        "date_posted": "The posting date of the job",
-        "description": "A detailed description of the company and the job, sufficient for generating a tailored cover letter"
-    }
-    
-    If any of the fields are missing or unavailable, leave them empty but include the field in the JSON object."""
-
     smart_scraper_graph = SmartScraperGraph(
         prompt=SCRAPING_PROMPT,
         source=url,
@@ -120,24 +121,116 @@ async def scrape_with_retries(url: str, max_retries: int = 3) -> dict:
                 raise e
             continue
 
-async def scrape_all_jobs():
-    temp_results = []
-    for url in job_urls:
-        try:
-            data = await scrape_with_retries(url)
-            temp_results.append({"url": url, "data": data})
-        except Exception as e:
-            temp_results.append({
-                "url": url, 
-                "error": str(e),
-                "timestamp": datetime.now().isoformat()
-            })
+async def scrape_linkedin_jobs() -> dict:
+    url = "https://www.linkedin.com/jobs/search/?keywords=software%20engineer&location=United%20States&trk=public_jobs_jobs-search-bar_search-submit&redirect=false&position=1&pageNum=0"
     
+    graph_config = {
+        "llm": {
+            "api_key": OPENAI_API_KEY,
+            "model": "openai/gpt-4o-mini",
+        },
+        "verbose": True,
+        "headless": True,
+        "playwright": {
+            "browser_type": "chromium",
+            "launch_options": {
+                "args": [
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--disable-software-rasterizer",
+                    "--disable-accelerated-2d-canvas",
+                    "--no-first-run",
+                    "--no-zygote",
+                    "--single-process"
+                ]
+            },
+            "context_options": {
+                "viewport": {"width": 1920, "height": 1080},
+                "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            }
+        }
+    }
+    
+    smart_scraper = SmartScraperGraph(
+        prompt=SCRAPING_PROMPT,
+        source=url,
+        config=graph_config
+    )
+    
+    try:
+        data = await asyncio.to_thread(smart_scraper.run)
+        return {"url": url, "data": data}
+    except Exception as e:
+        return {
+            "url": url,
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
+
+async def scrape_ycombinator_jobs() -> dict:
+    url = "https://www.workatastartup.com/jobs"
+    
+    graph_config = {
+        "llm": {
+            "api_key": OPENAI_API_KEY,
+            "model": "openai/gpt-4o-mini",
+        },
+        "verbose": True,
+        "headless": True,
+        "playwright": {
+            "browser_type": "chromium",
+            "launch_options": {
+                "args": [
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--disable-software-rasterizer",
+                    "--disable-accelerated-2d-canvas",
+                    "--no-first-run",
+                    "--no-zygote",
+                    "--single-process"
+                ]
+            },
+            "context_options": {
+                "viewport": {"width": 1920, "height": 1080},
+                "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            }
+        }
+    }
+    
+    smart_scraper = SmartScraperGraph(
+        prompt=SCRAPING_PROMPT,
+        source=url,
+        config=graph_config
+    )
+    
+    try:
+        data = await asyncio.to_thread(smart_scraper.run)
+        return {"url": url, "data": data}
+    except Exception as e:
+        return {
+            "url": url,
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
+
+async def scrape_all_jobs():
+    # Run both scraping tasks concurrently
+    tasks = [
+        scrape_linkedin_jobs(),
+        scrape_ycombinator_jobs()
+    ]
+    
+    temp_results = await asyncio.gather(*tasks)
     results_manager.set_results(temp_results)
     
     # Schedule clearing of results after 5 minutes
     await asyncio.sleep(300)
     results_manager.clear()
+
 @app.get("/scrape")
 async def scrape_jobs(background_tasks: BackgroundTasks):
     if results_manager.is_scraping:
